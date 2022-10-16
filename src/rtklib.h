@@ -144,7 +144,7 @@ extern "C" {
 
 #ifdef ENAGLO
 #define MINPRNGLO   1                   /* min satellite slot number of GLONASS */
-#define MAXPRNGLO   27                  /* max satellite slot number of GLONASS */
+#define MAXPRNGLO   32                  /* max satellite slot number of GLONASS */
 #define NSATGLO     (MAXPRNGLO-MINPRNGLO+1) /* number of GLONASS satellites */
 #define NSYSGLO     1
 #else
@@ -181,7 +181,7 @@ extern "C" {
 #endif
 #ifdef ENACMP
 #define MINPRNCMP   1                   /* min satellite sat number of BeiDou */
-#define MAXPRNCMP   46                  /* max satellite sat number of BeiDou */
+#define MAXPRNCMP                     /* max satellite sat number of BeiDou */
 #define NSATCMP     (MAXPRNCMP-MINPRNCMP+1) /* number of BeiDou satellites */
 #define NSYSCMP     1
 #else
@@ -495,6 +495,7 @@ extern "C" {
 #define P2_5        0.03125             /* 2^-5 */
 #define P2_6        0.015625            /* 2^-6 */
 #define P2_11       4.882812500000000E-04 /* 2^-11 */
+#define P2_12       2.441406250000000E-04 /* 2^-12 */
 #define P2_15       3.051757812500000E-05 /* 2^-15 */
 #define P2_17       7.629394531250000E-06 /* 2^-17 */
 #define P2_19       1.907348632812500E-06 /* 2^-19 */
@@ -742,6 +743,14 @@ typedef struct {        /* SBAS long term satellite error correction type */
     double daf0,daf1;   /* delta clock-offset/drift (s,s/s) */
 } sbslcorr_t;
 
+typedef struct {        /* SBAS covariance parameters */
+    gtime_t t0;         /* correction time */
+    int iode;           /* IODE (issue of date ephemeris) */
+    double dpos[3];     /* delta position (m) (ecef) */
+    double dvel[3];     /* delta velocity (m/s) (ecef) */
+    double daf0,daf1;   /* delta clock-offset/drift (s,s/s) */
+} sbslcorr_t;
+
 typedef struct {        /* SBAS satellite correction type */
     int sat;            /* satellite number */
     sbsfcorr_t fcorr;   /* fast correction */
@@ -749,7 +758,7 @@ typedef struct {        /* SBAS satellite correction type */
 } sbssatp_t;
 
 typedef struct {        /* SBAS satellite corrections type */
-    int iodp;           /* IODP (issue of date mask) */
+    int iodm;           /* IODM (issue of date mask) */
     int nsat;           /* number of satellites */
     int tlat;           /* system latency (s) */
     sbssatp_t sat[MAXSAT]; /* satellite correction */

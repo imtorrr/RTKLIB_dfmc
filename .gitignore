@@ -12,3 +12,4 @@ __astcache
 
 # gets created by qmake
 /app/qtapp/Makefile
+/.vscode/

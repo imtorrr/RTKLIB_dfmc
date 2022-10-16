@@ -44,6 +44,7 @@
 #define WEEKOFFSET  1024        /* gps week offset for NovAtel OEM-3 */
 
 /* sbas igp definition -------------------------------------------------------*/
+// FIXME: DO WE NEED THIS?
 static const int16_t
 x1[]={-75,-65,-55,-50,-45,-40,-35,-30,-25,-20,-15,-10,- 5,  0,  5, 10, 15, 20,
        25, 30, 35, 40, 45, 50, 55, 65, 75, 85},
@@ -66,6 +67,7 @@ x7[]={-180,-150,-120,- 90,- 60,- 30,   0,  30,  60,  90, 120, 150},
 x8[]={-170,-140,-110,- 80,- 50,- 20,  10,  40,  70, 100, 130, 160};
 
 EXPORT const sbsigpband_t igpband1[9][8]={ /* band 0-8 */
+// FIXME: DO WE NEED THIS?
     {{-180,x1,  1, 28},{-175,x2, 29, 51},{-170,x3, 52, 78},{-165,x2, 79,101},
      {-160,x3,102,128},{-155,x2,129,151},{-150,x3,152,178},{-145,x2,179,201}},
     {{-140,x4,  1, 28},{-135,x2, 29, 51},{-130,x3, 52, 78},{-125,x2, 79,101},
@@ -86,6 +88,7 @@ EXPORT const sbsigpband_t igpband1[9][8]={ /* band 0-8 */
      { 160,x3,101,127},{ 165,x2,128,150},{ 170,x3,151,177},{ 175,x2,178,200}}
 };
 EXPORT const sbsigpband_t igpband2[2][5]={ /* band 9-10 */
+// FIXME: DO WE NEED THIS?
     {{  60,x5,  1, 72},{  65,x6, 73,108},{  70,x6,109,144},{  75,x6,145,180},
      {  85,x7,181,192}},
     {{- 60,x5,  1, 72},{- 65,x6, 73,108},{- 70,x6,109,144},{- 75,x6,145,180},
@@ -98,6 +101,7 @@ static char *getfield(char *p, int pos)
     return p;
 }
 /* variance of fast correction (udre=UDRE+1) ---------------------------------*/
+// FIXME: DO WE NEED THIS?
 static double varfcorr(int udre)
 {
     const double var[14]={
@@ -107,6 +111,7 @@ static double varfcorr(int udre)
     return 0<udre&&udre<=14?var[udre-1]:0.0;
 }
 /* variance of ionosphere correction (give=GIVEI+1) --------------------------*/
+// FIXME: DO WE NEED THIS?
 static double varicorr(int give)
 {
     const double var[15]={
@@ -116,6 +121,7 @@ static double varicorr(int give)
     return 0<give&&give<=15?var[give-1]:0.0;
 }
 /* fast correction degradation -----------------------------------------------*/
+// FIXME: DO WE NEED THIS?
 static double degfcorr(int ai)
 {
     const double degf[16]={
@@ -124,31 +130,105 @@ static double degfcorr(int ai)
     };
     return 0<ai&&ai<=15?degf[ai]:0.0058;
 }
-/* decode type 1: prn masks --------------------------------------------------*/
-static int decode_sbstype1(const sbsmsg_t *msg, sbssat_t *sbssat)
+/* decode type 31: prn masks --------------------------------------------------*/
+static int decode_sbstype31(const sbsmsg_t *msg, sbssat_t *sbssat)
 {
     int i,n,sat;
     
-    trace(4,"decode_sbstype1:\n");
+    trace(4,"decode_sbstype31:\n");
     
     for (i=1,n=0;i<=210&&n<MAXSAT;i++) {
-        if (getbitu(msg->msg,13+i,1)) {
-           if      (i<= 37) sat=satno(SYS_GPS,i);    /*   0- 37: gps */
-           else if (i<= 61) sat=satno(SYS_GLO,i-37); /*  38- 61: glonass */
-           else if (i<=119) sat=0;                   /*  62-119: future gnss */
-           else if (i<=138) sat=satno(SYS_SBS,i);    /* 120-138: geo/waas */
-           else if (i<=182) sat=0;                   /* 139-182: reserved */
-           else if (i<=192) sat=satno(SYS_SBS,i+10); /* 183-192: qzss ref [2] */
-           else if (i<=202) sat=satno(SYS_QZS,i);    /* 193-202: qzss ref [2] */
-           else             sat=0;                   /* 203-   : reserved */
+        if (getbitu(msg->msg,9+i,1)) {
+           if      (i<= 37) sat=satno(SYS_GPS,i);    /*   1- 37: gps */
+           else if (i<= 74) sat=satno(SYS_GLO,i-37); /*  38- 74: glonass */
+           else if (i<=111) sat=satno(SYS_GAL,i-74); /*  75-111: galileo */
+           else if (i<=119) sat=0;                   /* 112-119: future gnss */
+           else if (i<=158) sat=satno(SYS_SBS,i);    /* 120-158: geo/waas */
+           else if (i<=195) sat=satno(SYS_CMP,i-158);/* 159-195: beidou */
+           else if (i<=207) sat=0;                   /* 196-207: reserved */
+           else             sat=0;                   /* 208-214: spared */
            sbssat->sat[n++].sat=sat;
         }
     }
-    sbssat->iodp=getbitu(msg->msg,224,2);
+    // FIXME: change IODP to IODM for dfmc
+    sbssat->iodm=getbitu(msg->msg,224,2);
     sbssat->nsat=n;
     
-    trace(5,"decode_sbstype1: nprn=%d iodp=%d\n",n,sbssat->iodp);
+    trace(5,"decode_sbstype1: nprn=%d iodm=%d\n",n,sbssat->iodm);
     return 1;
+}
+/* decode type 32: satellite clock-ephemeris corrections and covariance matrix*/
+static int decode_sbstype32(const sbsmsg_t *msg, sbssat_t *sbssat)
+{
+    /* Message Header */
+    int i,n=getbitu(msg->msg, 10, 9),t,se,j,c=0; //FIXME: ADDED se,j,c
+    double *e;
+    
+    trace(4,"decode_longcorr1:\n");
+    
+    if (n==0||n>MAXSAT) return 0;
+    
+    sbssat->sat[n-1].lcorr.iode=getbitu(msg->msg,19,10); //NOTE: change IODE to IODN
+    
+    for (i=0;i<3;i++) {
+        sbssat->sat[n-1].lcorr.dpos[i]=getbits(msg->msg,10+9+10+i*11,11)*0.0625;
+        sbssat->sat[n-1].lcorr.dvel[i]=getbits(msg->msg,10+9+10+3*11+i*8, 8)*P2_11;
+    }
+    sbssat->sat[n-1].lcorr.daf0=getbits(msg->msg,10+9+10+3*11,12)*0.03125; //NOTE: clock drift in meters
+    sbssat->sat[n-1].lcorr.daf1=getbits(msg->msg,10+9+10+3*11+12+3*8, 9)*P2_12; //NOTE: clock drift in meters per sec
+    t=(int)getbitu(msg->msg,10+9+10+3*11+12+3*8+9,13)*16-(int)msg->tow%86400;
+    if      (t<=-43200) t+=86400;
+    else if (t>  43200) t-=86400;
+    sbssat->sat[n-1].lcorr.t0=gpst2time(msg->week,msg->tow+t);
+
+    /* Covariance parameters */
+    se=(int)getbitu(msg->msg,110,3);
+    e=zeros(4,4);
+    for (i=0;i<4;i++) {
+        e[i+4*i] = getbits(msg->msg,113+i*9);
+    }
+    for (i=0;i<3;i++) for (j=i+1;j<4;j++{
+        e[i*4+j] = getbits(msg->msg,149+c*10,10);
+        c++
+    }
+    
+    /* Integrity parameters */
+    int dfrei=getbitu(msg->msg,219,4);
+    double rcorr = getbits(msg->msg,223,3)/8;
+    trace(5,"decode_longcorr1: sat=%2d\n",sbssat->sat[n-1].sat);
+    return 1;
+    // int i,j,iodf,type,udre;
+    // double prc,dt;
+    // gtime_t t0;
+    
+    // trace(4,"decode_sbstype2:\n");
+    
+    // // if (sbssat->iodm!=(int)getbitu(msg->msg,16,2)) return 0;
+    
+    // type=getbitu(msg->msg, 8,6);
+    // iodf=getbitu(msg->msg,14,2);
+    
+    // for (i=0;i<13;i++) {
+    //     if ((j=13*((type==0?2:type)-2)+i)>=sbssat->nsat) break;
+    //     udre=getbitu(msg->msg,174+4*i,4);
+    //     t0 =sbssat->sat[j].fcorr.t0;
+    //     prc=sbssat->sat[j].fcorr.prc;
+    //     sbssat->sat[j].fcorr.t0=gpst2time(msg->week,msg->tow);
+    //     sbssat->sat[j].fcorr.prc=getbits(msg->msg,18+i*12,12)*0.125f;
+    //     sbssat->sat[j].fcorr.udre=udre+1;
+    //     dt=timediff(sbssat->sat[j].fcorr.t0,t0);
+    //     if (t0.time==0||dt<=0.0||18.0<dt||sbssat->sat[j].fcorr.ai==0) {
+    //         sbssat->sat[j].fcorr.rrc=0.0;
+    //         sbssat->sat[j].fcorr.dt=0.0;
+    //     }
+    //     else {
+    //         sbssat->sat[j].fcorr.rrc=(sbssat->sat[j].fcorr.prc-prc)/dt;
+    //         sbssat->sat[j].fcorr.dt=dt;
+    //     }
+    //     sbssat->sat[j].fcorr.iodf=iodf;
+    // }
+    // trace(5,"decode_sbstype2: type=%d iodf=%d\n",type,iodf);
+    // return 1;
 }
 /* decode type 2-5,0: fast corrections ---------------------------------------*/
 static int decode_sbstype2(const sbsmsg_t *msg, sbssat_t *sbssat)
@@ -423,14 +503,13 @@ static int decode_sbstype26(const sbsmsg_t *msg, sbsion_t *sbsion)
 *-----------------------------------------------------------------------------*/
 extern int sbsupdatecorr(const sbsmsg_t *msg, nav_t *nav)
 {
-    int type=getbitu(msg->msg,8,6),stat=-1;
+    int type=getbitu(msg->msg,4,6),stat=-1;
     
     trace(3,"sbsupdatecorr: type=%d\n",type);
     
     if (msg->week==0) return -1;
     
     switch (type) {
-        case  0: stat=decode_sbstype2 (msg,&nav->sbssat); break;
         case  1: stat=decode_sbstype1 (msg,&nav->sbssat); break;
         case  2:
         case  3:
@@ -443,6 +522,7 @@ extern int sbsupdatecorr(const sbsmsg_t *msg, nav_t *nav)
         case 24: stat=decode_sbstype24(msg,&nav->sbssat); break;
         case 25: stat=decode_sbstype25(msg,&nav->sbssat); break;
         case 26: stat=decode_sbstype26(msg,nav ->sbsion); break;
+        case  0:
         case 63: break; /* null message */
         
         /*default: trace(2,"unsupported sbas message: type=%d\n",type); break;*/
